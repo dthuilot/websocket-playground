@@ -79,6 +79,67 @@ docker-compose up --build
 docker-compose --profile envoy up --build
 ```
 
+## Stopping the Server
+
+The server implements graceful shutdown to ensure all connections are properly closed.
+
+### Running Locally (Foreground)
+
+When running the server directly in your terminal:
+
+```bash
+# Simply press Ctrl+C
+# The server will log:
+# INFO Shutting down server...
+# INFO Server exited
+```
+
+### Running in Background
+
+If the server is running in the background:
+
+```bash
+# Find the process ID
+lsof -i :8080 -t
+
+# Stop gracefully (replace <PID> with the actual process ID)
+kill -TERM <PID>
+
+# Or in one command
+kill -TERM $(lsof -ti :8080)
+```
+
+### Running with Docker
+
+```bash
+# Stop all services
+docker-compose down
+
+# Stop specific service
+docker-compose stop websocket-server
+
+# Stop with Envoy profile
+docker-compose --profile envoy down
+```
+
+### Using Makefile
+
+```bash
+# Stop Docker services
+make docker-stop
+
+# Stop including Envoy
+make envoy-down
+```
+
+### Graceful Shutdown Features
+
+The server provides:
+- **10-second timeout** for active connections to close
+- **Proper signal handling** for SIGINT (Ctrl+C) and SIGTERM
+- **Connection cleanup** for all active WebSocket clients
+- **Structured logging** of shutdown process
+
 ## Testing with Postman
 
 1. Open Postman
