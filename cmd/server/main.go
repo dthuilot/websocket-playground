@@ -83,7 +83,8 @@ func main() {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	// Explicitly ignore error - if write fails, connection is likely already closed
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -173,5 +174,6 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>
 `
-	w.Write([]byte(html))
+	// Explicitly ignore error - if write fails, connection is likely already closed
+	_, _ = w.Write([]byte(html))
 }

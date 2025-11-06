@@ -90,7 +90,9 @@ type Client struct {
 // readPump pumps messages from the WebSocket connection to the hub
 func (c *Client) readPump() {
 	defer func() {
-		c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			c.log.WithError(err).WithField("client_id", c.clientID).Error("Error closing connection")
+		}
 		c.log.WithField("client_id", c.clientID).Info("Client disconnected")
 	}()
 
@@ -133,7 +135,9 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			c.log.WithError(err).WithField("client_id", c.clientID).Error("Error closing connection in writePump")
+		}
 	}()
 
 	for {

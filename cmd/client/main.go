@@ -31,7 +31,11 @@ func main() {
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	defer c.Close()
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Println("close:", err)
+		}
+	}()
 
 	done := make(chan struct{})
 
