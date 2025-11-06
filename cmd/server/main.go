@@ -19,32 +19,32 @@ func main() {
 	log := logrus.New()
 	log.SetFormatter(&logrus.JSONFormatter{})
 	log.SetOutput(os.Stdout)
-	
+
 	// Load configuration
 	cfg := config.Load()
-	
+
 	// Set log level
 	level, err := logrus.ParseLevel(cfg.LogLevel)
 	if err != nil {
 		level = logrus.InfoLevel
 	}
 	log.SetLevel(level)
-	
+
 	log.WithFields(logrus.Fields{
-		"port":             cfg.Port,
+		"port":              cfg.Port,
 		"read_buffer_size":  cfg.ReadBufferSize,
 		"write_buffer_size": cfg.WriteBufferSize,
 	}).Info("Starting WebSocket server")
-	
+
 	// Create WebSocket handler
 	wsHandler := handler.NewWebSocketHandler(log, cfg)
-	
+
 	// Setup HTTP routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
 	mux.HandleFunc("/health", handleHealth)
 	mux.HandleFunc("/", handleRoot)
-	
+
 	// Create server
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
@@ -53,7 +53,7 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	
+
 	// Start server in a goroutine
 	go func() {
 		log.Infof("Server listening on :%s", cfg.Port)
@@ -61,22 +61,22 @@ func main() {
 			log.Fatalf("Server failed to start: %v", err)
 		}
 	}()
-	
+
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	
+
 	log.Info("Shutting down server...")
-	
+
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	if err := server.Shutdown(ctx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
-	
+
 	log.Info("Server exited")
 }
 

@@ -57,7 +57,7 @@ func main() {
 			if message == "" {
 				continue
 			}
-			
+
 			err := c.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
 				log.Println("write:", err)
@@ -87,7 +87,7 @@ func main() {
 			log.Println("write close:", err)
 			return
 		}
-		
+
 		// Wait for close acknowledgment or timeout
 		select {
 		case <-done:

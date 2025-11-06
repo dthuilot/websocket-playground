@@ -56,7 +56,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	}
 
 	clientID := fmt.Sprintf("%s-%d", r.RemoteAddr, time.Now().Unix())
-	
+
 	h.log.WithFields(logrus.Fields{
 		"client_id":   clientID,
 		"remote_addr": r.RemoteAddr,
@@ -95,9 +95,15 @@ func (c *Client) readPump() {
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to set read deadline")
+		return
+	}
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+			c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to set read deadline in pong handler")
+			return err
+		}
 		return nil
 	})
 
@@ -133,10 +139,13 @@ func (c *Client) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+				c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to set write deadline")
+				return
+			}
 			if !ok {
 				// The hub closed the channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
@@ -144,13 +153,22 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
-			w.Write(message)
+			if _, err := w.Write(message); err != nil {
+				c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to write message")
+				return
+			}
 
 			// Add queued messages to the current WebSocket message
 			n := len(c.send)
 			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-c.send)
+				if _, err := w.Write([]byte{'\n'}); err != nil {
+					c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to write newline")
+					return
+				}
+				if _, err := w.Write(<-c.send); err != nil {
+					c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to write queued message")
+					return
+				}
 			}
 
 			if err := w.Close(); err != nil {
@@ -163,7 +181,10 @@ func (c *Client) writePump() {
 			}).Debug("Sent message")
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+				c.log.WithError(err).WithField("client_id", c.clientID).Error("Failed to set write deadline for ping")
+				return
+			}
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
